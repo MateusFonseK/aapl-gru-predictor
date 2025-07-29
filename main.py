@@ -10,7 +10,13 @@ from sklearn.metrics import mean_squared_error, r2_score
 import matplotlib.pyplot as plt
 
 # Baixar dados da ação AAPL
-dados_aapl = yf.download('AAPL', start='2020-01-01', end='2025-04-10')
+DIAS = 1
+END_DATE = '2025-07-30'
+START_DATE = '2020-01-01'
+TICKER = 'AAPL'
+SEQ_LEN = 60
+
+dados_aapl = yf.download(TICKER, start=START_DATE, end=END_DATE)
 
 # Verificar valores ausentes
 # valores faltantes nas colunas são substituídos pela última observação válida anterior.
@@ -32,7 +38,7 @@ def criar_sequencias(dados, comprimento_seq):
         y.append(dados[i+comprimento_seq])
     return np.array(X), np.array(y)
 
-comprimento_seq = 60
+comprimento_seq = SEQ_LEN
 X, y = criar_sequencias(dados_escalados, comprimento_seq)
 
 
@@ -65,7 +71,7 @@ previsoes_gru = escalador.inverse_transform(previsoes_gru)
 y_teste_real = escalador.inverse_transform(y_teste.reshape(-1, 1))
 
 # Prever preços futuros
-def prever_futuro(modelo, X_teste, dias=10):
+def prever_futuro(modelo, X_teste, dias):
     entrada_previsao = X_teste[-1].reshape(1, comprimento_seq, 1)
     previsao = []
     for _ in range(dias):
@@ -75,7 +81,7 @@ def prever_futuro(modelo, X_teste, dias=10):
         entrada_previsao[0, -1, 0] = pred
     return escalador.inverse_transform(np.array(previsao).reshape(-1, 1))
 
-previsao_gru = prever_futuro(modelo_gru, X_teste)
+previsao_gru = prever_futuro(modelo_gru, X_teste, dias = DIAS)
 
 # Calcular métricas de avaliação
 mse = mean_squared_error(y_teste_real, previsoes_gru)
@@ -100,8 +106,7 @@ indice_data = dados_aapl.index[-len(y_teste):]
 
 # Exibir a previsão
 print("--------------------------------")
-print("\nPrevisão de 10 dias:")
-print(f"{indice_data[-1].strftime('%d/%m/%Y')} - Valor: ${float(dados_aapl['Close'].iloc[-1].iloc[0]):.2f}")
+print(f"{indice_data[-1].strftime('%d/%m/%Y')} - Valor Real: ${float(dados_aapl['Close'].iloc[-1].iloc[0]):.2f}")
 print("\nPrevisões:")
 datas_previsao = pd.date_range(start=indice_data[-1], periods=11)[1:]
 for i, (data, valor) in enumerate(zip(datas_previsao, previsao_gru), 1):
@@ -111,7 +116,7 @@ for i, (data, valor) in enumerate(zip(datas_previsao, previsao_gru), 1):
 plt.figure(figsize=(10, 6))
 plt.plot(indice_data, y_teste_real, label='Preço de Fechamento Real', color='blue', linewidth=1.5)
 plt.plot(indice_data, previsoes_gru, label='Previsões GRU', color='green', linestyle='-', linewidth=1)
-datas_previsao = pd.date_range(start=indice_data[-1], periods=11)[1:]
+datas_previsao = pd.date_range(start=indice_data[-1], periods=DIAS + 1)[1:]
 plt.plot(datas_previsao, previsao_gru, label='Previsão GRU', color='red', linestyle='--', linewidth=1.5, alpha=0.9)
 plt.axvline(x=indice_data[-1], color='gray', linestyle=':', linewidth=1.5, label='Início da Previsão')
 plt.axvspan(indice_data[-1], datas_previsao[-1], color='skyblue', alpha=0.5, label='Período de Previsão')
